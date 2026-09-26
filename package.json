@@ -1,0 +1,57 @@
+{
+  "name": "brink-voice",
+  "productName": "VOICE",
+  "version": "0.4.0",
+  "description": "Voice-over-Studio mit Teleprompter im BRINK-Design",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "Tom Aulbach",
+  "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "node --test tests/*.test.cjs",
+    "test:smoke": "electron tests/smoke.cjs",
+    "build": "electron-builder --mac dir"
+  },
+  "devDependencies": {
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.getbrinkapp.voice",
+    "productName": "VOICE",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "app/**/*",
+      "electron/**/*",
+      "package.json",
+      "build/brink.png"
+    ],
+    "mac": {
+      "icon": "build/brink.icns",
+      "category": "public.app-category.music",
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "VOICE benötigt dein Mikrofon für Voice-over-Aufnahmen."
+      }
+    },
+    "win": {
+      "icon": "build/brink.png",
+      "target": "nsis"
+    },
+    "linux": {
+      "icon": "build/brink.png",
+      "target": "AppImage"
+    },
+    "npmRebuild": false,
+    "electronDist": "node_modules/electron/dist",
+    "afterPack": "scripts/after-pack.cjs"
+  }
+}

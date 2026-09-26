@@ -1,0 +1,166 @@
+:root {
+
+    /* Typografie */
+    --brink-brand-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    --font-family: var(--brink-brand-font);
+
+    /* Farben */
+
+    --color-background: #17181C;
+    --color-surface: #1F2127;
+    --color-surface-light: #272A31;
+
+    --color-border: #343842;
+
+    --color-text: #F5F5F7;
+    --color-text-secondary: #A4A9B6;
+    --color-text-muted: #858B98;
+
+    --color-accent: #6E6BFF;
+    --color-success: #30D158;
+    --color-warning: #FF9F0A;
+    --color-danger: #FF453A;
+
+    /* Semantische Designfarben
+       Nur diese Basiswerte müssen durch ein Nutzer-Theme überschrieben werden.
+       Alle Komponenten leiten ihre Zustände und Verläufe daraus ab. */
+    --color-info: color-mix(in srgb, var(--color-accent) 58%, #3e8bfa);
+    --color-on-accent: #FFFFFF;
+    --color-on-info: #FFFFFF;
+    --color-on-danger: #FFFFFF;
+    --color-on-success: #FFFFFF;
+    --color-card-gradient-start: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+    --color-card-gradient-middle: var(--color-surface);
+    --color-card-gradient-end: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+    --color-card-glow: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    --color-action-hover: color-mix(in srgb, var(--color-accent) 86%, white);
+    --color-danger-hover: color-mix(in srgb, var(--color-danger) 86%, white);
+    --color-info-hover: color-mix(in srgb, var(--color-info) 86%, white);
+
+    /* Durchgehender App-Hintergrund. Die Farbmischungen folgen automatisch
+       der vom Creator gewählten Hintergrund- und Akzentfarbe. */
+    --app-gradient-secondary:color-mix(in srgb,var(--color-accent) 58%,#d43bbd);
+    --app-background:
+        radial-gradient(ellipse 76% 64% at 102% -8%,
+            color-mix(in srgb,var(--color-accent) 34%,transparent) 0%,
+            color-mix(in srgb,var(--color-accent) 15%,transparent) 38%,
+            transparent 72%),
+        radial-gradient(ellipse 58% 62% at -7% 108%,
+            color-mix(in srgb,var(--app-gradient-secondary) 24%,transparent) 0%,
+            color-mix(in srgb,var(--app-gradient-secondary) 10%,transparent) 44%,
+            transparent 74%),
+        radial-gradient(ellipse 46% 54% at 48% 54%,
+            color-mix(in srgb,var(--color-accent) 8%,transparent) 0%,
+            transparent 74%),
+        linear-gradient(128deg,
+            color-mix(in srgb,var(--color-background) 84%,#090a12) 0%,
+            color-mix(in srgb,var(--color-background) 95%,#151326) 42%,
+            color-mix(in srgb,var(--color-background) 78%,var(--color-accent)) 100%);
+
+    /* Radius */
+
+    --radius-global: 14px;
+    --radius-control: var(--radius-global);
+    --radius-card: var(--radius-global);
+    --radius-dialog: var(--radius-global);
+    --radius-small: var(--radius-control);
+    --radius-medium: var(--radius-control);
+    --radius-large: var(--radius-card);
+
+    /* Wiederkehrende Größen für gleichartige Bedienelemente */
+    --control-height: 42px;
+    --control-icon-size: 42px;
+    --control-padding-block: 10px;
+    --control-padding-inline: 16px;
+    --control-content-gap: 8px;
+
+    /* Schatten */
+
+    --shadow-card:
+        0 8px 24px rgba(0,0,0,.28);
+
+    /* Abstände */
+
+    --spacing-xs: 6px;
+    --spacing-sm: 12px;
+    --spacing-md: 20px;
+    --spacing-lg: 30px;
+    --spacing-xl: 40px;
+    --card-gap-x: 16px;
+    --card-gap-y: 16px;
+
+    /* Flüssige Typografie: Die Werte skalieren mit Fenster und gewählter
+       Schrift, ohne an einzelnen Seiten erneut festgelegt zu werden. */
+    --type-page-title: clamp(30px, 2.7vw, 44px);
+    --page-title-icon-size: 32px;
+    --page-title-icon-gap: 12px;
+    --type-section-title: clamp(21px, 1.65vw, 28px);
+    --type-card-title: clamp(16px, 1.05vw, 20px);
+    --type-body: clamp(14px, .86vw, 16px);
+    --type-small: clamp(11px, .7vw, 13px);
+
+}
+
+@font-face {
+    font-family:"Space Grotesk";
+    src:url("../assets/fonts/space-grotesk-400.ttf") format("truetype");
+    font-weight:400;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Space Grotesk";
+    src:url("../assets/fonts/space-grotesk-500.ttf") format("truetype");
+    font-weight:500;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Space Grotesk";
+    src:url("../assets/fonts/space-grotesk-600.ttf") format("truetype");
+    font-weight:600;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Space Grotesk";
+    src:url("../assets/fonts/space-grotesk-700.ttf") format("truetype");
+    font-weight:700;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Montserrat";
+    src:url("../assets/fonts/montserrat-400.ttf") format("truetype");
+    font-weight:400;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Montserrat";
+    src:url("../assets/fonts/montserrat-500.ttf") format("truetype");
+    font-weight:500;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Montserrat";
+    src:url("../assets/fonts/montserrat-600.ttf") format("truetype");
+    font-weight:600;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Montserrat";
+    src:url("../assets/fonts/montserrat-700.ttf") format("truetype");
+    font-weight:700;
+    font-style:normal;
+    font-display:swap;
+}
+@font-face {
+    font-family:"Montserrat";
+    src:url("../assets/fonts/montserrat-800.ttf") format("truetype");
+    font-weight:800;
+    font-style:normal;
+    font-display:swap;
+}
