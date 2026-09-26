@@ -1,7 +1,7 @@
 {
   "name": "brink-voice",
   "productName": "VOICE",
-  "version": "0.4.0",
+  "version": "0.6.3",
   "description": "Voice-over-Studio mit Teleprompter im BRINK-Design",
   "private": true,
   "license": "UNLICENSED",
@@ -15,7 +15,8 @@
     "dev": "electron . --dev",
     "test": "node --test tests/*.test.cjs",
     "test:smoke": "electron tests/smoke.cjs",
-    "build": "electron-builder --mac dir"
+    "build": "electron-builder --mac dir",
+    "test:studio": "electron tests/studio-smoke.cjs"
   },
   "devDependencies": {
     "electron": "44.3.0",
@@ -32,14 +33,15 @@
       "app/**/*",
       "electron/**/*",
       "package.json",
-      "build/brink.png"
+      "build/brink.png",
+      "docs/licenses/**/*"
     ],
     "mac": {
       "icon": "build/brink.icns",
       "category": "public.app-category.music",
       "identity": null,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "VOICE benötigt dein Mikrofon für Voice-over-Aufnahmen."
+        "NSMicrophoneUsageDescription": "VOICE ben\u00f6tigt dein Mikrofon f\u00fcr Voice-over-Aufnahmen."
       }
     },
     "win": {
@@ -52,6 +54,13 @@
     },
     "npmRebuild": false,
     "electronDist": "node_modules/electron/dist",
-    "afterPack": "scripts/after-pack.cjs"
+    "afterPack": "scripts/after-pack.cjs",
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ]
+  },
+  "dependencies": {
+    "@jitsi/rnnoise-wasm": "0.2.1",
+    "ffmpeg-static": "5.3.0"
   }
 }

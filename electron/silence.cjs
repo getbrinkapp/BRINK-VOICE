@@ -41,9 +41,25 @@ async function analyze(file, value) {
   } finally {await handle.close();}
 }
 function summary(plan) {return {...plan,cuts:plan.cuts.map(([a,b])=>[a/plan.rate,b/plan.rate])};}
-async function clean(store,id,value) {
+function applyCuts(plan, customCuts) {
+  if(customCuts === undefined)return plan;
+  const invalid=()=>{throw Error('Ungültige Schnittgrenzen. Bitte die Pausen erneut prüfen.');};
+  if(!Array.isArray(customCuts) || customCuts.length!==plan.count || customCuts.length>100000)invalid();
+  let previous=0,removed=0;
+  const cuts=customCuts.map(pair=>{
+    if(!Array.isArray(pair) || pair.length!==2 || !pair.every(Number.isFinite))invalid();
+    const [start,end]=pair;
+    if(start<0 || end>plan.original || start>=end)invalid();
+    const a=Math.round(start*plan.rate),b=Math.round(end*plan.rate);
+    if(a<previous || b<=a || b>plan.samples)invalid();
+    previous=b;removed+=b-a;return [a,b];
+  });
+  if(removed>=plan.samples)invalid();
+  return {...plan,cuts,removed:removed/plan.rate,duration:(plan.samples-removed)/plan.rate};
+}
+async function clean(store,id,value,customCuts) {
   if(store.active)throw Error('Bitte zuerst die Aufnahme stoppen.');
-  const source=store.file(id),plan=await analyze(source,value);
+  const source=store.file(id),plan=applyCuts(await analyze(source,value),customCuts);
   if(!plan.audible)throw Error('Kein Sprachsignal erkannt. Wähle eine niedrigere Schwelle oder einen anderen Take.');
   if(!plan.count)throw Error('Mit diesen Einstellungen wurden keine längeren Lücken gefunden.');
   const outputId=randomUUID(),target=store.file(outputId),temp=target+'.editing';
@@ -65,10 +81,10 @@ async function clean(store,id,value) {
       await write(block.subarray(0,count*2));offset+=count;
     }
     await output.write(header(written,plan.rate),0,44,0);await output.sync();await output.close();output=null;
-    await fs.writeFile(target+'.json',JSON.stringify({kind:'cleaned',sourceId:id,removed:plan.removed}),{flag:'wx'});
+    await fs.writeFile(target+'.json',JSON.stringify({...await store.metadata(id),kind:'cleaned',sourceId:id,removed:plan.removed,cuts:summary(plan).cuts}),{flag:'wx'});
     await fs.rename(temp,target);
     return {id:outputId,...summary(plan)};
   } catch(e){await output?.close().catch(()=>{});await fs.unlink(temp).catch(()=>{});await fs.unlink(target+'.json').catch(()=>{});throw e;}
   finally {await input.close();}
 }
-module.exports={analyze,summary,clean,options};
+module.exports={analyze,summary,clean,options,applyCuts};

@@ -35,3 +35,13 @@ Der Schalter „Script anzeigen“ ersetzt innerhalb von Record die große Signa
 ## Ergänzungen 0.4
 
 Die Aufnahmefläche bleibt unverändert groß. Feine zusammenhängende Hüllkurve statt breiter Balken; festes Zehn-Sekunden-Fenster. Pausiert: gelber Status, Zeitanzeige und Hinweis über der eingefrorenen Kurve. Bearbeiten ist ein Dialog über Record mit eigenen BRINK-Transportbuttons, markierten Lücken, drei einfachen Einstellungen und Ergebnisvergleich. Originale werden nicht überschrieben.
+
+## 0.4.1: Pausen nachjustieren
+
+Gelbe Markierungen erhalten schmale Randgriffe und eine verschiebbare Fläche. Der gewählte Bereich bleibt gelb hervorgehoben. Direkt darunter liegen Lückenauswahl, Beginn/Ende in Sekunden und Zurücksetzen. Griffe sind mit Pfeiltasten bedienbar und als Slider beschriftet; schmale Bereiche lassen sich auch über die Auswahl und Zeitfelder bedienen. BRINK-Farben, Rundungen und der scrollfreie Record-Bereich bleiben erhalten.
+
+## 0.5: Feste Take-Bibliothek und verständliche Pausenbedienung
+
+Die linke Sidebar enthält unter Record/Script eine dauerhafte Take-Bibliothek (Datum, Dauer, Original/Bereinigt, Wiedergabe), Aktionen für die Auswahl und Ordnerzugriff. Die Liste scrollt intern, Record bleibt im Fenster. Ersetzt den bisherigen Take-Dialog.
+
+Die Pausenbearbeitung verwendet Dauer und Zeitspanne mit einer Nachkommastelle statt numerischer Beginn-/Ende-Felder. Weniger/mehr entfernen, Vor/zurück zur nächsten Pause und Stellen-Vorschau unterstützen das direkte Ziehen. Statusflächen verwenden Gelb (erkannt), Blau (angepasst), Grün (fertig), Rot (Fehler), Violett (Verarbeitung) sowie Symbole und Text. Helle Darstellung nutzt dunklere Textfarben für ausreichenden Kontrast.

@@ -10,3 +10,6 @@ https://github.com/google/material-design-icons/blob/master/LICENSE
 
 The application renders the SVGs as CSS masks so every icon inherits the
 semantic color of its context (`currentColor`).
+
+`media-microphone.svg`: Material Symbols Rounded, `mic`, 24 px, from
+https://github.com/google/material-design-icons/blob/master/symbols/web/mic/materialsymbolsrounded/mic_24px.svg

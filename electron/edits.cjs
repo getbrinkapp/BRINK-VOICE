@@ -1,0 +1,14 @@
+const fs=require('node:fs/promises');
+const {header}=require('./recordings.cjs');
+async function wavInfo(file){const h=await fs.open(file,'r');try{const b=Buffer.alloc(44);await h.read(b,0,44,0);const stat=await h.stat(),rate=b.readUInt32LE(24),samples=b.readUInt32LE(40)/2;if(b.toString('ascii',0,4)!=='RIFF'||b.toString('ascii',8,16)!=='WAVEfmt '||b.toString('ascii',36,40)!=='data'||b.readUInt16LE(20)!==1||b.readUInt16LE(22)!==1||b.readUInt16LE(34)!==16||rate<8000||rate>192000||!Number.isInteger(samples)||stat.size<44+samples*2)throw Error('Ungültige VOICE-Aufnahme.');return {rate,samples,duration:samples/rate};}finally{await h.close();}}
+function ranges(cuts,info){if(!Array.isArray(cuts)||cuts.length>20000)throw Error('Ungültige Schnitte.');const ordered=cuts.map(c=>{if(!Array.isArray(c)||c.length!==2||!c.every(Number.isFinite)||c[0]<0||c[1]>info.duration+.000001||c[0]>=c[1])throw Error('Ungültige Schnittgrenzen.');const a=Math.round(c[0]*info.rate),b=Math.min(info.samples,Math.round(c[1]*info.rate));if(a>=b)throw Error('Schnitt zu kurz.');return [a,b];}).sort((a,b)=>a[0]-b[0]);const merged=[];for(const [a,b]of ordered){const last=merged.at(-1);if(last&&a<=last[1])last[1]=Math.max(last[1],b);else merged.push([a,b]);}const remaining=info.samples-merged.reduce((n,[a,b])=>n+b-a,0);if(remaining<1)throw Error('Mindestens ein Stück Audio muss erhalten bleiben.');return {cuts:merged,remaining};}
+async function render(source,target,cuts,check=()=>{},progress=()=>{}){
+ const info=await wavInfo(source),plan=ranges(cuts,info),input=await fs.open(source,'r'),output=await fs.open(target,'wx');let bytes=0;
+ try{await output.write(header(plan.remaining*2,info.rate),0,44,0);const segments=[];let start=0;for(const [a,b]of plan.cuts){if(a>start)segments.push([start,a]);start=b;}if(start<info.samples)segments.push([start,info.samples]);const block=Buffer.alloc(262144),fade=Math.round(info.rate*.003);
+ for(const [a,b]of segments)for(let at=a;at<b;){check();const count=Math.min(block.length/2,b-at);let read=0;while(read<count*2){const r=await input.read(block,read,count*2-read,44+at*2+read);if(!r.bytesRead)throw Error('Audio unvollständig.');read+=r.bytesRead;}
+ for(let i=0;i<count;i++){const index=at+i;let gain=1;if(a>0)gain=Math.min(gain,(index-a)/fade);if(b<info.samples)gain=Math.min(gain,(b-1-index)/fade);if(gain<1)block.writeInt16LE(Math.round(block.readInt16LE(i*2)*Math.max(0,gain)),i*2);}
+ let n=0;while(n<count*2){const w=await output.write(block,n,count*2-n,44+bytes+n);if(!w.bytesWritten)throw Error('Audio konnte nicht gespeichert werden.');n+=w.bytesWritten;}bytes+=n;at+=count;progress(at/info.samples);}
+ await output.sync();return {...info,duration:plan.remaining/info.rate,samples:plan.remaining};
+ }finally{await input.close();await output.close();}
+}
+module.exports={wavInfo,ranges,render};

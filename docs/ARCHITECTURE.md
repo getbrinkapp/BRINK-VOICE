@@ -29,3 +29,21 @@ Grenzen der ersten Version: keine Audiobearbeitung, Mehrspuraufnahme, Kompressor
 `input-status.cjs` liest auf macOS über den festen Systembefehl ioreg ausschließlich den Deckelstatus und gibt ihn zusammen mit der Mikrofonfreigabe zurück. Keine benutzerdefinierten Argumente oder Änderungen an Systemeinstellungen. Geschlossener Deckel plus internes MacBook-Mikrofon verhindert den Aufnahmestart mit einer konkreten Meldung. Ausbleibende Signale werden separat angezeigt.
 
 Record/Script sind gegenseitig ausschließende Seiten. Script-Lesemodus liegt innerhalb von Record; Canvas-Größen folgen der verfügbaren Flex-Fläche. Take-Archiv als nativer HTML-Dialog. Vorhandene Audio- und Entwurfsdaten bleiben kompatibel.
+
+## 0.4.1: Anpassbare Pausenschnitte
+
+`app/js/cuts.mjs` begrenzt manuelle Änderungen auf Dateigrenzen und benachbarte Schnitte und rundet in Samples. Die Vorschau hält einen automatisch erkannten Referenzstand und die bearbeiteten Grenzen; Maus-, Tastatur- und Zeiteingaben aktualisieren dieselbe Schnittliste. Änderungen machen eine bereits erzeugte Exportvorschau ungültig. Der IPC `clean-silence` nimmt optional Schnittgrenzen in Sekunden entgegen. `silence.applyCuts` validiert Anzahl, Reihenfolge, Überlappung, endliche Zahlen, Dateigrenzen und verbleibende Audiodaten, bevor die Datei geschrieben wird. Der WAV-Export und die Herkunftsmetadaten verwenden genau diese validierten Schnittgrenzen. Originaldateien bleiben erhalten.
+
+## 0.5: Take-Bibliothek und vereinfachte Darstellung
+
+Die Take-Liste liegt dauerhaft in der Sidebar; Auswahl und Wiedergabestatus werden mit dem vorhandenen Preview-Player synchronisiert. Während Aufnahme oder Geräteaktivierung sind Take-Aktionen gesperrt. Neue und bereinigte Takes aktualisieren die Liste; Löschen nutzt weiterhin die native Bestätigung.
+
+Der Editor stellt die interne samplegenaue Schnittliste mit einer Nachkommastelle dar. Weniger/mehr entfernen nutzt dieselbe validierte Anpassungsfunktion wie Ziehen und Tastatur. Die Stellen-Vorschau spielt das Original mit 0,4 s Kontext vor/nach der Pause und stoppt danach. Statusflächen haben semantische Farben, Text und Symbole; es gibt keine nur durch Farbe übermittelte Information.
+
+## Studio 0.6
+
+`electron/audio-jobs.cjs` verwaltet jeweils einen Hintergrundauftrag. `audio-worker.cjs` rendert Schnitte, RNNoise und FFmpeg-Effekte außerhalb des Hauptprozesses mit Abbruch und Fortschritt. Keine Shell-Aufrufe: Filter entstehen ausschließlich aus begrenzten Zahlen/Booleans in `audio-settings.cjs`. Ergebnisse werden erst nach erfolgreichem Abschluss atomar als neue Takes sichtbar; Originale bleiben unverändert. Temporäre Hörproben liegen separat im AudioCache und verwenden Byte-Range-Wiedergabe über `voice://preview`. FFmpeg liegt ausführbar außerhalb von app.asar, RNNoise als eingebettetes WASM im Paket.
+
+`library.cjs` schreibt Scripts/Projekte atomar und sequenziell, `Recordings.patchMetadata` Take-Metadaten. `library-ui.mjs` verwaltet Auswahl, Filter und Entwürfe; ausstehende Scriptänderungen überleben Neuladen über localStorage. `editor.mjs` und `edit-model.mjs` implementieren Pausen-/Freischnitte, bis zu 100 Undo-Schritte, Vorlagen, A/B-Zeitabbildung und fensterweise Waveform-Abfragen für Zoom.
+
+`handoff.cjs` prüft bestehende BRINK-Projektordner und kopiert WAV-Dateien nach media/sounds ohne bestehende Dateien zu überschreiben. CINE erhält ein eigenes, schema-kompatibles Projekt mit einer Audiospur und WAV-Begleitdatei. Keine unbestätigten Deep-Link-Protokolle.

@@ -37,3 +37,24 @@ test('edits validate settings, file IDs and active recordings',async t=>{
  const {store,id}=await fixture(t,[[.5,.2],[.8,0],[.5,.2]]);await assert.rejects(clean(store,'../outside'),/Ungültige Aufnahme/);
  const active=await store.start(48000);await assert.rejects(clean(store,id),/zuerst/);await store.finish(active.id);
 });
+test('manual cuts determine exact output duration and samples, without replacing the original',async t=>{
+ const {store,id,rate}=await fixture(t,[[.6,.2],[.8,0],[.6,.2]],44100);
+ const before=await fs.readFile(store.file(id)),custom=[[.8,1.2]];
+ const result=await clean(store,id,{},custom),after=await fs.readFile(store.file(result.id));
+ assert.deepEqual(result.cuts,custom);assert.equal(result.removed,.4);assert.equal(result.duration,1.6);
+ assert.equal(after.length,44+Math.round(1.6*rate)*2);assert.deepEqual(await fs.readFile(store.file(id)),before);
+ // Interior samples from both sides of the requested cut are preserved in order.
+ assert.deepEqual(after.subarray(44+rate*.2*2,44+rate*.4*2),before.subarray(44+rate*.2*2,44+rate*.4*2));
+ assert.deepEqual(after.subarray(44+Math.round(rate*1.1)*2,44+Math.round(rate*1.3)*2),before.subarray(44+Math.round(rate*1.5)*2,44+Math.round(rate*1.7)*2));
+ const metadata=JSON.parse(await fs.readFile(store.file(result.id)+'.json','utf8'));assert.deepEqual(metadata.cuts,custom);
+});
+test('manual ranges reject malformed, reversed, overlapping, out of bounds and empty output edits before writing',async t=>{
+ const {store,id}=await fixture(t,[[.6,0],[.5,.2],[1,0],[.5,.2],[.6,0]]);
+ const {applyCuts}=require('../electron/silence.cjs'),plan=await analyze(store.file(id));
+ for(const cuts of [null,[],[[0,.4]],[[0,.4],[.3,1],[2,3]],[[0,.4],[2,1],[2.2,3]],[[0,.4],[1,2],[2,4]],[[0,NaN],[1,2],[2,3]],[[0,.4],['1',2],[2,3]],[[0,.4],[1,1],[2,3]],[[0,1],[1,2],[2,3.2]]]) {
+  assert.throws(()=>applyCuts(plan,cuts),/Ungültige Schnittgrenzen/);
+  await assert.rejects(clean(store,id,{},cuts),/Ungültige Schnittgrenzen/);
+ }
+ assert.equal((await store.list()).length,1);
+ assert.equal((await fs.readdir(store.dir)).length,1);
+});

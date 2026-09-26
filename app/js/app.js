@@ -1,4 +1,6 @@
 import {cleanScript, wordCount, timeLabel, chooseInput} from './core.mjs';
+import {createEditor} from './editor.mjs';
+import {createLibraryUI} from './library-ui.mjs';
 const $ = id => document.getElementById(id);
 const api = window.voice;
 let micStream, audioContext, analyser, processor, zeroGain, source;
@@ -15,15 +17,16 @@ $('dismissNotice').onclick = () => $('notice').hidden = true;
 function fail(e) { console.error(e); notice(e?.message || 'Die Aktion konnte nicht ausgeführt werden.', true); }
 const guarded = fn => async (...args) => {try {await fn(...args);} catch(e) {fail(e);} };
 function getSaved() { try {return JSON.parse(localStorage.getItem('brink-voice-draft') || '{}');} catch {return {};} }
+let libraryUI=null,cachedTakes=[];
 const saved = getSaved(); preferredInput = typeof saved.microphone === 'string' ? saved.microphone : '';
-$('scriptEnabled').checked = saved.showScript === true;
+let scriptVisible = saved.showScript === true;
 $('script').value = typeof saved.text === 'string' ? saved.text : '';
 $('speed').value = Math.min(100, Math.max(10, Number(saved.speed) || 32));
 $('fontSize').value = ['24','30','38','46'].includes(saved.fontSize) ? saved.fontSize : '38';
 $('sync').checked = saved.sync !== false;
 $('theme').value = ['dark','light','system'].includes(saved.theme) ? saved.theme : 'dark';
 function saveDraft() {
-  try {localStorage.setItem('brink-voice-draft', JSON.stringify({text: $('script').value, speed: $('speed').value, fontSize: $('fontSize').value, sync: $('sync').checked, theme: $('theme').value, microphone: preferredInput, showScript: $('scriptEnabled').checked})); $('draftState').textContent = 'Entwurf lokal gespeichert';}
+  try {localStorage.setItem('brink-voice-draft', JSON.stringify({text: $('script').value, speed: $('speed').value, fontSize: $('fontSize').value, sync: $('sync').checked, theme: $('theme').value, microphone: preferredInput, showScript: scriptVisible, activeScriptId: libraryUI?.activeId() || saved.activeScriptId})); $('draftState').textContent = 'Entwurf lokal gespeichert';}
   catch { $('draftState').textContent = 'Entwurf konnte nicht gespeichert werden'; }
 }
 function applyTheme() { document.documentElement.dataset.theme = $('theme').value === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : $('theme').value; }
@@ -31,7 +34,7 @@ $('theme').onchange = () => {applyTheme(); saveDraft();};
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyTheme); applyTheme();
 function resetPrompter() { $('prompterViewport').scrollTop = 0; scrollPosition = 0; lastAppliedScroll = 0; $('prompterStatus').textContent = 'Am Anfang'; }
 function setPrompter(run) {
-  prompterRunning = run && $('scriptEnabled').checked && !!$('script').value.trim();
+  prompterRunning = run && scriptVisible && !!$('script').value.trim();
   $('prompterPlay').textContent = prompterRunning ? 'Text pausieren' : 'Text starten';
   $('prompterPlay').setAttribute('aria-label', prompterRunning ? 'Teleprompter pausieren' : 'Teleprompter starten');
   $('prompterStatus').textContent = prompterRunning ? 'Läuft' : ($('prompterViewport').scrollTop > 0 ? 'Pausiert' : 'Am Anfang');
@@ -42,7 +45,7 @@ function updateScript() {
   const words = wordCount($('script').value); $('wordCount').textContent = `${words} Wörter · ca. ${timeLabel(words / 140 * 60)}`;
   setPrompter(false); resetPrompter(); $('prompterPlay').disabled = !words; saveDraft();
 }
-$('script').addEventListener('input', updateScript); updateScript();
+$('script').addEventListener('input', () => {updateScript();libraryUI?.scheduleSave();}); updateScript();
 $('speed').oninput = () => { $('speedValue').value = $('speed').value + ' px/s'; saveDraft(); }; $('speed').oninput();
 $('fontSize').onchange = () => { $('prompterText').style.fontSize = `${$('fontSize').value}px`; saveDraft(); }; $('fontSize').onchange();
 $('sync').onchange = () => {if ($('sync').checked && recording !== 'idle') setPrompter(recording === 'recording'); syncControls(); saveDraft();};
@@ -54,21 +57,21 @@ $('prompterPlay').onclick = () => {
 $('reset').onclick = resetPrompter;
 $('prompterViewport').addEventListener('scroll', () => {if (Math.abs($('prompterViewport').scrollTop - lastAppliedScroll) > 1) scrollPosition = $('prompterViewport').scrollTop;});
 function setScriptMode(enabled) {
-  $('scriptEnabled').checked = enabled; $('recordWorkspace').classList.toggle('script-mode', enabled);
+  scriptVisible = enabled; $('scriptEnabled').setAttribute('aria-pressed',String(enabled)); $('scriptEnabled').classList.toggle('primary',enabled); $('scriptEnabled').classList.toggle('secondary',!enabled); $('recordWorkspace').classList.toggle('script-mode', enabled);
   $('reader').hidden = !enabled; $('wavePanel').hidden = enabled;
   if(!enabled) setPrompter(false); else if(recording === 'recording' && $('sync').checked) setPrompter(true);
   resizeReader(); saveDraft();
 }
 function resizeReader() { const v=$('prompterViewport');v.style.setProperty('--reader-lead', `${v.clientHeight*.27}px`);v.style.setProperty('--reader-tail',`${v.clientHeight*.85}px`); }
 new ResizeObserver(resizeReader).observe($('prompterViewport'));
-$('scriptEnabled').onchange = () => setScriptMode($('scriptEnabled').checked);
+$('scriptEnabled').onclick = () => setScriptMode(!scriptVisible);
 $('useScript').onclick = () => {showView('record');setScriptMode(true);};
 $('writeScript').onclick = () => showView('script');
 $('import').onclick = guarded(async () => {
   const result = await api.importText(); if (!result) return;
   // Preserve an existing draft by appending imported text rather than replacing it.
   $('script').value = [$('script').value.trim(), cleanScript(result.text, result.name).trim()].filter(Boolean).join('\n\n');
-  updateScript(); notice(`${result.name} wurde zum Skript hinzugefügt.`);
+  updateScript(); libraryUI?.scheduleSave(); notice(`${result.name} wurde zum Skript hinzugefügt.`);
 });
 function syncControls() {
   document.body.dataset.recording = recording;
@@ -81,13 +84,14 @@ function syncControls() {
   $('pause').innerHTML = recording === 'paused' ? '<i class="icon" data-icon="media-play"></i><span>Weiter</span>' : '<i class="icon" data-icon="media-pause"></i><span>Pause</span>'; icons($('pause'));
   $('microphone').disabled = busy || recording !== 'idle'; $('connectMic').disabled = busy || recording !== 'idle';
   $('script').disabled = recording !== 'idle'; $('import').disabled = recording !== 'idle';
-  $('takesNav').disabled = busy || recording !== 'idle';
+  updateLibraryState();
+  libraryUI?.sync(busy || recording !== 'idle');
   $('scriptNav').disabled = busy || recording !== 'idle';
   $('previewPanel').hidden = !selectedTake || recording !== 'idle';
   $('waveEmpty').hidden = !!micStream || !!selectedTake;
   $('prompterPlay').disabled = !$('script').value.trim() || ($('sync').checked && recording !== 'idle');
   for (const id of ['previewPlay','previewBack','previewForward','previewSeek','previewExport','previewEdit']) $(id).disabled = busy || recording !== 'idle' || !selectedTake || player.readyState < 1;
-  document.querySelectorAll('.take-preview').forEach(b => b.disabled = recording !== 'idle' || busy);
+
   document.body.dataset.preview = String(!!selectedTake);
   $('waveStart').textContent = recording === 'idle' && selectedTake ? '00:00' : 'Eingangssignal';
   $('waveEnd').textContent = recording === 'paused' ? 'Pausiert · Mono' : recording === 'idle' && selectedTake ? timeLabel(selectedTake.duration) : 'Live · Mono';
@@ -175,6 +179,7 @@ async function startRecording() {
   try {
     if (!micStream?.getAudioTracks().some(t => t.readyState === 'live')) await connectMic();
     await audioContext.resume();
+    await libraryUI?.flush();
     const result = await api.start(audioContext.sampleRate); takeId = result.id; recordedSamples = 0; pendingSamples = 0; writeQueue = Promise.resolve(); writeError = null;
     await sendCommand('record'); recording = 'recording'; liveHistory = [];
     $('notice').hidden = true;
@@ -196,6 +201,7 @@ async function stopRecording() {
     try {await sendCommand('stop');} catch(e) {writeError ||= e;}
     await writeQueue;
     const finishedId = takeId; await api.finish(takeId); takeId = null;
+    await libraryUI?.associate(finishedId);
     notice(writeError ? `Aufnahme beendet: ${writeError.message} Der gespeicherte Teil steht unter „Meine Takes“ bereit.` : 'Take gespeichert. Du kannst ihn direkt in der Vorschau anhören oder als WAV exportieren.', !!writeError);
     const takes = await loadTakes();
     await selectTake(takes.find(t => t.id === finishedId));
@@ -212,7 +218,7 @@ function showView(view) {
   }
   if(script) setPrompter(false); else resizeReader();
 }
-function takeName(take) { return `${take.kind === 'cleaned' ? 'Bereinigt' : 'Take'} · ${new Date(take.created).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
+function takeName(take) { if(take.name)return take.name; return `${take.kind === 'cleaned' ? 'Bereinigt' : 'Take'} · ${new Date(take.created).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`; }
 function clearPreview() {
   previewGeneration++; player.pause(); player.removeAttribute('src'); player.load(); selectedTake = null; previewPeaks = [];
   $('previewName').textContent = 'Audio-Vorschau'; $('previewInfo').textContent = 'Nach der Aufnahme kannst du deinen Take hier anhören.'; syncControls();
@@ -227,7 +233,7 @@ async function selectTake(take, play = false) {
   $('previewInfo').textContent = `${timeLabel(waveform.duration)} · ${take.rate / 1000} kHz · WAV · Mono`;
   $('waveEnd').textContent = timeLabel(waveform.duration);
   document.querySelectorAll('.take-row').forEach(row => row.classList.toggle('selected', row.dataset.id === take.id));
-  syncControls(); if(play && recording === 'idle') await player.play();
+  syncControls();document.querySelector('.take-row.selected')?.scrollIntoView({block:'nearest'}); if(play && recording === 'idle') await player.play();
 }
 function previewUI() {
   const duration = Number.isFinite(player.duration) ? player.duration : 0;
@@ -245,102 +251,102 @@ $('previewSeek').oninput = () => seek(Number($('previewSeek').value) / 1000 * pl
 $('volume').oninput = () => player.volume = Number($('volume').value);
 $('wave').onclick = event => {const r = $('wave').getBoundingClientRect();seek((event.clientX - r.left) / r.width * player.duration);};
 $('previewExport').onclick = guarded(async () => {if(selectedTake && await api.export(selectedTake.id)) notice('WAV-Datei exportiert.');});
-async function loadTakes() {
-  const takes = await api.list(); $('takeCount').textContent = takes.length;
-  if (!takes.length) {$('takes').innerHTML = '<div class="takes-empty"><i class="icon" data-icon="file-audio"></i><div><strong>Noch keine Aufnahmen</strong><p>Starte deinen ersten Take im Aufnahmestudio. Er wird hier automatisch gespeichert.</p></div></div>'; icons($('takes')); return takes;}
-  $('takes').replaceChildren();
-  for (const take of takes) {
-    const row = document.createElement('div'); row.className = 'take-row'; row.dataset.id = take.id; row.classList.toggle('selected', selectedTake?.id === take.id);
-    const icon = document.createElement('i'); icon.className = 'icon'; icon.dataset.icon = 'file-audio'; row.append(icon);
-    const detail = document.createElement('div'); const name = document.createElement('strong'); name.textContent = takeName(take);
-    const meta = document.createElement('small'); meta.textContent = `${new Date(take.created).toLocaleDateString('de-DE')} · ${timeLabel(take.duration)} · ${(take.size/1048576).toFixed(1)} MB`;
-    detail.append(name,meta); row.append(detail);
-    const preview = document.createElement('button'); preview.className = 'secondary take-preview'; preview.innerHTML = '<i class="icon" data-icon="media-play"></i>Anhören';
-    preview.disabled = recording !== 'idle'; preview.onclick = guarded(async () => {if(recording !== 'idle' || busy) return;$('takesDialog').close();showView('record'); await selectTake(take,true);}); row.append(preview);
-    const edit = document.createElement('button'); edit.className = 'secondary'; edit.textContent = 'Bearbeiten'; edit.onclick = guarded(async () => {$('takesDialog').close(); await selectTake(take); await openEditor();}); row.append(edit);
-    const exp = document.createElement('button'); exp.className = 'primary'; exp.textContent = 'WAV exportieren'; exp.onclick = guarded(async () => {if (await api.export(take.id)) notice('WAV-Datei exportiert.');}); row.append(exp);
-    const del = document.createElement('button'); del.className = 'danger secondary icon-button'; del.setAttribute('aria-label', `${name.textContent} löschen`); del.innerHTML = '<i class="icon" data-icon="action-delete"></i>'; del.onclick = guarded(async () => {if (await api.remove(take.id)) {if(selectedTake?.id === take.id) clearPreview(); await loadTakes();}}); row.append(del);
-    $('takes').append(row);
-  } icons($('takes')); return takes;
+function updateLibraryState(){
+ const locked=recording!=='idle' || busy;
+ $('libraryActions').hidden=!selectedTake;
+ $('librarySelection').textContent=selectedTake?takeName(selectedTake):'';
+ $('libraryHint').textContent=recording!=='idle'?'Aufnahme aktiv · Takes geschützt':busy?'Bitte kurz warten …':'Alles lokal gespeichert';
+ for(const id of ['libraryEdit','libraryExport','libraryDelete','libraryDetails'])$(id).disabled=locked || !selectedTake;
+ $('libraryEdit').disabled ||= !previewPeaks.length;
+ $('refreshTakes').disabled=locked;
+ for(const row of $('takes').querySelectorAll('.take-row')){
+  const selected=row.dataset.id===selectedTake?.id,playing=selected&&!player.paused;
+  row.classList.toggle('selected',selected);
+  const select=row.querySelector('.take-select'),play=row.querySelector('.take-preview');
+  select.setAttribute('aria-pressed',String(selected));select.disabled=locked;play.disabled=locked;
+  for(const control of row.querySelectorAll('.take-rename,.take-name-form input,.take-name-form button'))control.disabled=locked;
+  play.setAttribute('aria-label',playing?'Take pausieren':'Take anhören');
+  const icon=play.querySelector('.icon'),name=playing?'media-pause':'media-play';
+  if(icon.dataset.icon!==name){icon.dataset.icon=name;icons(play);}
+ }
 }
-$('openFolder').onclick = guarded(async () => {const error = await api.openFolder(); if (error) throw Error(error);});
-$('takesNav').onclick = guarded(async () => {await loadTakes();$('takesDialog').showModal();});
-$('closeTakes').onclick = () => $('takesDialog').close();
+async function openLibraryTake(take,play=false){
+ if(recording!=='idle' || busy)return;
+ showView('record');setScriptMode(false);
+ if(selectedTake?.id===take.id && play){if(player.paused)await player.play();else player.pause();}
+ else await selectTake(take,play);
+}
+async function loadTakes() {
+ cachedTakes=await api.list();if(selectedTake){selectedTake=cachedTakes.find(t=>t.id===selectedTake.id)||null;if(selectedTake)$('previewName').textContent=takeName(selectedTake);}
+ renderTakes();return cachedTakes;
+}
+let cancelTakeRename=null;
+function beginTakeRename(take,row){
+ if(busy||recording!=='idle')return;
+ cancelTakeRename?.();
+ const select=row.querySelector('.take-select'),actions=row.querySelector('.take-row-actions');
+ const form=document.createElement('form');form.className='take-name-form';form.noValidate=true;
+ const label=document.createElement('label');label.textContent='Take benennen';
+ const input=document.createElement('input');input.type='text';input.maxLength=160;input.value=takeName(take);input.autocomplete='off';input.id='take-name-'+take.id;label.htmlFor=input.id;
+ const buttons=document.createElement('div');buttons.className='take-name-actions';
+ const save=document.createElement('button');save.type='submit';save.className='primary';save.textContent='Speichern';
+ const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary';cancel.textContent='Abbrechen';
+ const error=document.createElement('p');error.className='take-name-error';error.setAttribute('role','alert');error.hidden=true;
+ buttons.append(save,cancel);form.append(label,input,buttons,error);select.hidden=true;actions.hidden=true;row.append(form);
+ const restore=()=>{form.remove();select.hidden=false;actions.hidden=false;cancelTakeRename=null;row.querySelector('.take-rename').focus();};
+ cancelTakeRename=restore;cancel.onclick=()=>{if(!busy)restore();};
+ form.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target===input&&!e.isComposing){e.preventDefault();e.stopPropagation();form.requestSubmit();}if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(!busy)restore();}});
+ input.oninput=()=>{error.hidden=true;input.removeAttribute('aria-invalid');};
+ form.onsubmit=async e=>{
+  e.preventDefault();if(busy||recording!=='idle')return;const name=input.value.trim();
+  if(!name){error.textContent='Bitte einen Namen eingeben.';error.hidden=false;input.setAttribute('aria-invalid','true');input.focus();return;}
+  busy=true;syncControls();
+  try{await api.updateTake(take.id,{name});await loadTakes();$('takes').querySelector(`[data-id="${take.id}"] .take-rename`)?.focus();notice('Take umbenannt.');}
+  catch(e){error.textContent=e.message||'Name konnte nicht gespeichert werden.';error.hidden=false;}
+  finally{busy=false;syncControls();}
+ };
+ input.focus();input.select();
+}
+function renderTakes(){
+ cancelTakeRename=null;
+ const takes=libraryUI?libraryUI.filter(cachedTakes):cachedTakes;$('takeCount').textContent=takes.length;$('takes').replaceChildren();
+ if(!takes.length){$('takes').innerHTML='<div class="takes-empty"><i class="icon" data-icon="file-audio"></i><div><strong>Platz für deine Stimme</strong><p>Deine Aufnahmen erscheinen nach dem Stoppen automatisch hier.</p></div></div>';}
+ for(const take of takes){
+  const row=document.createElement('div');row.className='take-row';row.dataset.id=take.id;
+  const select=document.createElement('button');select.className='take-select';select.title=takeName(take);select.setAttribute('aria-label',`${takeName(take)} auswählen`);
+  const name=document.createElement('strong');name.textContent=(take.favorite?'★ ':'')+takeName(take);
+  const meta=document.createElement('span');meta.className='take-meta';
+  const date=document.createElement('time');date.textContent=`${new Date(take.created).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})} · ${timeLabel(take.duration)}`;
+  const kind=document.createElement('span');kind.className='take-kind'+(['cleaned','edited'].includes(take.kind)?' cleaned':'');kind.textContent=({cleaned:'Bereinigt',edited:'Bearbeitet',imported:'Import'})[take.kind]||'Original';
+  meta.append(date,kind);select.append(name,meta);select.onclick=guarded(()=>openLibraryTake(take));
+  const play=document.createElement('button');play.className='take-preview';play.innerHTML='<i class="icon" data-icon="media-play"></i>';play.title='Anhören / pausieren';play.onclick=guarded(()=>openLibraryTake(take,true));
+  const rename=document.createElement('button');rename.className='take-rename';rename.title='Take umbenennen';rename.setAttribute('aria-label',`${takeName(take)} umbenennen`);rename.innerHTML='<i class="icon" data-icon="action-edit"></i>';rename.onclick=()=>beginTakeRename(take,row);
+  const actions=document.createElement('div');actions.className='take-row-actions';actions.append(play,rename);
+  row.append(select,actions);$('takes').append(row);
+ }
+ icons($('takes'));updateLibraryState();return takes;
+}
+$('openFolder').onclick=guarded(async()=>{const error=await api.openFolder();if(error)throw Error(error);});
+$('refreshTakes').onclick=guarded(loadTakes);
+$('libraryEdit').onclick=guarded(openEditor);
+$('libraryExport').onclick=guarded(async()=>{if(!busy && recording==='idle' && selectedTake && await api.export(selectedTake.id))notice('WAV-Datei exportiert.');});
+$('libraryDelete').onclick=guarded(async()=>{
+ if(busy || recording!=='idle' || !selectedTake)return;
+ const id=selectedTake.id;
+ if(await api.remove(id)){if(selectedTake?.id===id)clearPreview();await loadTakes();}
+});
 $('studioNav').onclick = () => {showView('record');};
 $('scriptNav').onclick = () => showView('script');
 
-let editSource=null, editPeaks=[], editPlan=null, editResult=null, editGeneration=0, editWorking=false;
-const editPlayer=$('editAudio'); editPlayer.volume=.8;
-const durationText=seconds=>`${seconds.toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})} s`;
-function editOptions(){return {threshold:Number($('silenceThreshold').value),minimum:Number($('silenceMinimum').value),keep:Number($('silenceKeep').value)};}
-function editError(error){$('editError').textContent=error?.message || String(error);$('editError').hidden=false;}
-function setEditAudio(id,label){editPlayer.pause();editPlayer.src=`voice://take/${id}`;editPlayer.load();$('editListenLabel').textContent=label;}
-async function openEditor(){
- if(!selectedTake || recording!=='idle' || busy)return;
- player.pause();editSource=selectedTake;editPeaks=previewPeaks;editResult=null;editPlan=null;
- $('editTakeName').textContent=takeName(editSource);$('editError').hidden=true;
- setEditAudio(editSource.id,'Original anhören');$('editDialog').showModal();await analyzeEditor();
-}
-async function analyzeEditor(){
- const generation=++editGeneration;editPlan=null;editResult=null;
- $('applyCleanup').hidden=false;$('applyCleanup').disabled=true;$('exportCleanup').hidden=true;$('editOriginal').hidden=true;$('editResult').hidden=true;
- $('editError').hidden=true;$('editSummary').textContent='Lücken werden gesucht …';
- setEditAudio(editSource.id,'Original anhören');
- try {
-  const plan=await api.analyzeSilence(editSource.id,editOptions());
-  if(generation!==editGeneration || !$('editDialog').open)return;
-  editPlan=plan;
-  $('editSummary').textContent=!plan.audible?'Kein Sprachsignal erkannt. Senke die Schwelle, um leise Sprache zu erhalten.':!plan.count?'Keine längeren Lücken gefunden. Passe bei Bedarf die Einstellungen an.':`${plan.count} Lücken · ${durationText(plan.removed)} kürzer · ${durationText(plan.original)} → ${durationText(plan.duration)}`;
-  $('applyCleanup').disabled=!plan.count || !plan.audible;
- }catch(e){if(generation===editGeneration){$('editSummary').textContent='Analyse nicht möglich.';editError(e);}}
-}
+const studioEditor=createEditor({api,$,icons,timeLabel,takeName,drawWave,onSaved:async id=>{const takes=await loadTakes();await selectTake(takes.find(t=>t.id===id));}});
+async function openEditor(){if(!selectedTake||recording!=='idle'||busy)return;player.pause();await studioEditor.open(selectedTake);}
 $('previewEdit').onclick=guarded(openEditor);
-for(const id of ['silenceThreshold','silenceMinimum','silenceKeep'])$(id).onchange=()=>void analyzeEditor();
-$('closeEdit').onclick=()=>{if(!editWorking)$('editDialog').close();};
-$('editDialog').addEventListener('cancel',e=>{if(editWorking)e.preventDefault();});
-$('editDialog').addEventListener('close',()=>{editGeneration++;editPlayer.pause();});
-$('applyCleanup').onclick=async()=>{
- if(!editPlan?.count || editWorking)return;
- editWorking=true;$('editError').hidden=true;$('editSummary').textContent='Lücken werden entfernt und der neue Take wird gespeichert …';
- for(const id of ['silenceThreshold','silenceMinimum','silenceKeep','applyCleanup','closeEdit'])$(id).disabled=true;
- editPlayer.pause();
- try {
-  const result=await api.cleanSilence(editSource.id,editOptions());
-  const takes=await loadTakes();editResult=takes.find(t=>t.id===result.id);
-  await selectTake(editResult);
-  $('editSummary').textContent=`Bereinigter Take gespeichert · ${result.count} Lücken entfernt · ${durationText(result.removed)} kürzer. Original erhalten.`;
-  $('applyCleanup').hidden=true;$('exportCleanup').hidden=false;$('editOriginal').hidden=false;$('editResult').hidden=false;
-  setEditAudio(result.id,'Ergebnis anhören');
- }catch(e){$('editSummary').textContent='Bereinigung nicht abgeschlossen. Dein Original bleibt erhalten.';editError(e);}
- finally {editWorking=false;for(const id of ['silenceThreshold','silenceMinimum','silenceKeep','applyCleanup','closeEdit'])$(id).disabled=false;}
-};
-$('editOriginal').onclick=()=>setEditAudio(editSource.id,'Original anhören');
-$('editResult').onclick=()=>{if(editResult)setEditAudio(editResult.id,'Ergebnis anhören');};
-$('exportCleanup').onclick=async()=>{try{if(editResult && await api.export(editResult.id))$('editSummary').textContent='Bereinigtes WAV exportiert. Dein Original bleibt erhalten.';}catch(e){editError(e);}};
-$('editPlay').onclick=async()=>{try{if(editPlayer.paused)await editPlayer.play();else editPlayer.pause();}catch(e){editError(e);}};
-$('editSeek').oninput=()=>{if(Number.isFinite(editPlayer.duration))editPlayer.currentTime=Number($('editSeek').value)/1000*editPlayer.duration;};
-for(const event of ['loadedmetadata','timeupdate','play','pause','ended','emptied'])editPlayer.addEventListener(event,()=>{
- const duration=Number.isFinite(editPlayer.duration)?editPlayer.duration:0;
- $('editPlay').disabled=!duration;$('editSeek').disabled=!duration;
- $('editPlay').textContent=editPlayer.paused?'Abspielen':'Pause';
- $('editSeek').value=duration?editPlayer.currentTime/duration*1000:0;
- $('editPosition').textContent=`${timeLabel(editPlayer.currentTime)} / ${timeLabel(duration)}`;
-});
-editPlayer.addEventListener('error',()=>editError(Error('Die Audio-Vorschau konnte nicht geladen werden.')));
-function drawEditor(){
- if(!$('editDialog').open)return;
- const c=$('editWave');drawWave(c,editPeaks,0);
- if(!editPlan?.original)return;
- const ctx=c.getContext('2d'),w=c.clientWidth,h=c.clientHeight;
- ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--color-warning').trim();ctx.globalAlpha=.3;
- for(const [start,end]of editPlan.cuts)ctx.fillRect(start/editPlan.original*w,0,(end-start)/editPlan.original*w,h);
- ctx.globalAlpha=1;
-}
+libraryUI=createLibraryUI({api,$,notice,fail,guarded,saved,updateScript,saveDraft,loadTakes,renderTakes,takeName,selected:()=>selectedTake,setBusy:value=>{busy=value;syncControls();},selectTake,allowed:()=>!busy&&recording==='idle'});
 
 window.addEventListener('keydown', guarded(async e => {
-  if ($('editDialog').open) return;
-  if (e.code === 'Escape') {if (takeId && !busy) await stopRecording(); else if($('takesDialog').open) $('takesDialog').close(); return;}
-  if($('recordPage').hidden || $('takesDialog').open || $('editDialog').open) return;
+  if(document.querySelector('dialog[open]'))return;
+  if (e.code === 'Escape') {if (takeId && !busy) await stopRecording();  return;}
+  if($('recordPage').hidden || $('editDialog').open) return;
   if (e.code !== 'Space' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) return;
   e.preventDefault(); if (recording === 'idle') await startRecording(); else await pauseRecording();
 }));
@@ -403,9 +409,9 @@ function frame(now){
  const peaks=preview?previewPeaks:liveHistory;
  drawWave($('wave'),peaks,preview&&player.duration?player.currentTime/player.duration:null);
  drawWave($('miniWave'),liveHistory);
- drawEditor();
+ studioEditor.draw();
  requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);setScriptMode($('scriptEnabled').checked);syncControls();
+requestAnimationFrame(frame);setScriptMode(scriptVisible);syncControls();
 navigator.mediaDevices?.addEventListener('devicechange',guarded(refreshDevices));
-void guarded(refreshDevices)();void guarded(loadTakes)();
+void guarded(refreshDevices)();void guarded(async()=>{await libraryUI.init();await loadTakes();})();
