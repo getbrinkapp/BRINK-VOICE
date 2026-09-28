@@ -5,7 +5,7 @@ async function atomic(file,data){const tmp=file+'.'+randomUUID()+'.tmp';try{awai
 class Library {
  constructor(file){this.file=file;this.queue=Promise.resolve();this.data={scripts:[],projects:[]};}
  async init(){try{const data=JSON.parse(await fs.readFile(this.file,'utf8'));if(!Array.isArray(data.scripts)||!Array.isArray(data.projects))throw Error('Bibliothek beschädigt.');this.data=data;}catch(e){if(e.code!=='ENOENT')throw e;}return this.view();}
- view(){return {scripts:this.data.scripts.map(s=>({...s})),projects:this.data.projects.map(({id,name,root})=>({id,name,linked:!!root}))};}
+ view(){return {scripts:this.data.scripts.map(s=>({...s})),projects:this.data.projects.map(({id,name,root,core})=>({id,name,linked:!!root||!!core,core:!!core}))};}
  async mutate(fn){const task=this.queue.then(async()=>{const next=structuredClone(this.data);const result=fn(next);await atomic(this.file,next);this.data=next;return result;});this.queue=task.catch(()=>{});return task;}
  project(id){return this.data.projects.find(p=>p.id===id);}
  async projectSave(value){return this.mutate(data=>{const name=text(value.name,100).trim();if(!name)throw Error('Bitte einen Projektnamen eingeben.');let project=data.projects.find(p=>p.id===value.id);if(!project){project={id:randomUUID()};data.projects.push(project);}project.name=name;return {...project};});}

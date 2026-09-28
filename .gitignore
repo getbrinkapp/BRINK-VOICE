@@ -3,3 +3,4 @@ release/
 work/
 .DS_Store
 *.log
+runtime/whisper/

@@ -1,6 +1,6 @@
 # VOICE
 
-- Eigenständiges Electron-/Node.js-Projekt unter `/Users/tom/Developer/VOICE`.
+- Eigenständiges Git-/Electron-/Node.js-Projekt im gemeinsamen Workspace unter `/Users/tom/Developer/brink/apps/VOICE`.
 - Nur dieses Projekt bearbeiten; BRINK-Suite und andere Editoren dienen als lesbare Referenzen.
 - BRINK-Designregeln unter `docs/DESIGN.md` einhalten. Farben/Geometrie zentral, bestehende lokale Material-Symbols-Icons und beiliegende Lizenzen verwenden.
 - Renderer: Sandbox, Context Isolation, kein Node-Zugriff, schmale Preload-API und überprüfte IPC-Sender.

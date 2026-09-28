@@ -11,3 +11,9 @@ Downloads, build instructions and corresponding source references: https://githu
 FFmpeg source: https://ffmpeg.org/download.html
 
 No audio is uploaded by these effects.
+
+Whisper transcription: whisper.cpp v1.9.4, pinned commit 927cfce34f31707e17f2bff35c349632fb9e2c3a. MIT license in WHISPER-CPP.txt. Static arm64 CLI with Accelerate/Metal; only Apple system frameworks are dynamically linked. Source: https://github.com/ggml-org/whisper.cpp/tree/v1.9.4
+
+Multilingual Whisper Base model: converted ggml weights from https://huggingface.co/ggerganov/whisper.cpp/blob/main/ggml-base.bin ; SHA-1 465707469ff3a37a2b9b8d8f89f2f99de7299dac as published in whisper.cpp/models/README.md. OpenAI Whisper MIT license in WHISPER-MODEL.txt. Upstream: https://github.com/openai/whisper
+
+The JFK test fixture is copied from whisper.cpp/samples/jfk.wav, a short excerpt of the 1961 US presidential inaugural address. It is used only in development tests and excluded from the packaged app.

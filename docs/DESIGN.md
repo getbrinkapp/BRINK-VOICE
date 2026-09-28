@@ -45,3 +45,7 @@ Gelbe Markierungen erhalten schmale Randgriffe und eine verschiebbare Fläche. D
 Die linke Sidebar enthält unter Record/Script eine dauerhafte Take-Bibliothek (Datum, Dauer, Original/Bereinigt, Wiedergabe), Aktionen für die Auswahl und Ordnerzugriff. Die Liste scrollt intern, Record bleibt im Fenster. Ersetzt den bisherigen Take-Dialog.
 
 Die Pausenbearbeitung verwendet Dauer und Zeitspanne mit einer Nachkommastelle statt numerischer Beginn-/Ende-Felder. Weniger/mehr entfernen, Vor/zurück zur nächsten Pause und Stellen-Vorschau unterstützen das direkte Ziehen. Statusflächen verwenden Gelb (erkannt), Blau (angepasst), Grün (fertig), Rot (Fehler), Violett (Verarbeitung) sowie Symbole und Text. Helle Darstellung nutzt dunklere Textfarben für ausreichenden Kontrast.
+
+## 0.6.4: Offizielles VOICE-Branding
+
+Quelle: die vom Nutzer bereitgestellte `voice_logo.pdf`, unverändert in `build/branding/voice-logo-source.pdf`. `scripts/import-voice-logo.py` überführt die enthaltenen Pfade in SVG, ohne Nachzeichnen oder Font-Ersatz. Originalfarben und Proportionen bleiben erhalten. In der Sidebar stehen Bildmarke und Schriftzug kompakt nebeneinander; „BY BRINK“ ordnet die App der Suite zu. Beide Themes verwenden die unveränderten Markenfarben. Die eigenständige Bildmarke dient mit transparentem Schutzraum als App-Icon. PNG und alle ICNS-Größen werden direkt aus dem Vektor gerendert (`scripts/render-voice-icon.cjs`, danach `iconutil`). Das Mikrofon-Icon bei Record bleibt ein Funktionssymbol.

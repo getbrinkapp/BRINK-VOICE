@@ -47,3 +47,9 @@ Der Editor stellt die interne samplegenaue Schnittliste mit einer Nachkommastell
 `library.cjs` schreibt Scripts/Projekte atomar und sequenziell, `Recordings.patchMetadata` Take-Metadaten. `library-ui.mjs` verwaltet Auswahl, Filter und Entwürfe; ausstehende Scriptänderungen überleben Neuladen über localStorage. `editor.mjs` und `edit-model.mjs` implementieren Pausen-/Freischnitte, bis zu 100 Undo-Schritte, Vorlagen, A/B-Zeitabbildung und fensterweise Waveform-Abfragen für Zoom.
 
 `handoff.cjs` prüft bestehende BRINK-Projektordner und kopiert WAV-Dateien nach media/sounds ohne bestehende Dateien zu überschreiben. CINE erhält ein eigenes, schema-kompatibles Projekt mit einer Audiospur und WAV-Begleitdatei. Keine unbestätigten Deep-Link-Protokolle.
+
+## Lokale Transkription 0.7
+
+`transcription.cjs` verwaltet native Whisper-Prozesse, lokale Ergebnisse und Abbruch. Die Hauptprozess-IPC erlaubt ausschließlich bekannte Take-IDs und ausgewählte Sprachcodes. Audio wird mit FFmpeg zu 16-kHz-Mono-PCM gewandelt; die Originaldatei bleibt bestehen. Die fest gepinnte lokale whisper.cpp-CLI schreibt JSON in einen temporären Ordner. Struktur, Zeitangaben und Textgrößen werden validiert. Das Ergebnis wird atomar unter Transcripts gespeichert; Fehler und Abbruch ersetzen bestehende Texte nicht. Metal ist aktiviert, mit CPU-Wiederholung bei einem Fehler. Es werden keine Audiodaten an Netzwerkdienste geschickt.
+
+Aufnahme, Effektrendern und Transkription sind gegenseitig gesperrt. Beim Fenster-Schließen wird auf die laufende Arbeit hingewiesen; Renderer-Abbruch beendet den Kindprozess. Temporäre Audiodateien werden im Abschluss und beim nächsten Start entfernt. Der Renderer bietet Fortschritt, Textkorrektur mit serialisierten Schreibvorgängen, lokalen Entwurf, Kopieren, TXT-Export und Übernahme in ein neues Script. Das Modell ist eine separate App-Ressource außerhalb von app.asar; der Build prüft SHA-256-Hashes aus der Runtime-Manifestdatei.

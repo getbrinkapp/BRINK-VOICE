@@ -1,5 +1,6 @@
 import {cleanScript, wordCount, timeLabel, chooseInput} from './core.mjs';
 import {createEditor} from './editor.mjs';
+import {createTranscriptionUI} from './transcription-ui.mjs';
 import {createLibraryUI} from './library-ui.mjs';
 const $ = id => document.getElementById(id);
 const api = window.voice;
@@ -256,7 +257,7 @@ function updateLibraryState(){
  $('libraryActions').hidden=!selectedTake;
  $('librarySelection').textContent=selectedTake?takeName(selectedTake):'';
  $('libraryHint').textContent=recording!=='idle'?'Aufnahme aktiv · Takes geschützt':busy?'Bitte kurz warten …':'Alles lokal gespeichert';
- for(const id of ['libraryEdit','libraryExport','libraryDelete','libraryDetails'])$(id).disabled=locked || !selectedTake;
+ for(const id of ['libraryEdit','libraryExport','libraryDelete','libraryDetails','libraryTranscribe'])$(id).disabled=locked || !selectedTake;
  $('libraryEdit').disabled ||= !previewPeaks.length;
  $('refreshTakes').disabled=locked;
  for(const row of $('takes').querySelectorAll('.take-row')){
@@ -343,6 +344,9 @@ async function openEditor(){if(!selectedTake||recording!=='idle'||busy)return;pl
 $('previewEdit').onclick=guarded(openEditor);
 libraryUI=createLibraryUI({api,$,notice,fail,guarded,saved,updateScript,saveDraft,loadTakes,renderTakes,takeName,selected:()=>selectedTake,setBusy:value=>{busy=value;syncControls();},selectTake,allowed:()=>!busy&&recording==='idle'});
 
+const transcriptionUI=createTranscriptionUI({api,$,takeName,setBusy:value=>{busy=value;syncControls();},onScript:async id=>{await libraryUI.flush();const script=await api.transcriptionScript(id);await libraryUI.openScript(script.id);showView('script');notice('Transkript als neues Script gespeichert.');}});
+$('libraryTranscribe').onclick=guarded(async()=>{if(!selectedTake||busy||recording!=='idle')return;player.pause();await transcriptionUI.open(selectedTake);});
+
 window.addEventListener('keydown', guarded(async e => {
   if(document.querySelector('dialog[open]'))return;
   if (e.code === 'Escape') {if (takeId && !busy) await stopRecording();  return;}
@@ -414,4 +418,31 @@ function frame(now){
 }
 requestAnimationFrame(frame);setScriptMode(scriptVisible);syncControls();
 navigator.mediaDevices?.addEventListener('devicechange',guarded(refreshDevices));
-void guarded(refreshDevices)();void guarded(async()=>{await libraryUI.init();await loadTakes();})();
+void guarded(refreshDevices)();void guarded(async()=>{
+  await libraryUI.init(); await loadTakes();
+  let coreProject=null;
+  async function openCoreProject(context){
+    if(recording!=='idle'||busy||document.querySelector('dialog[open]:not(.brink-core-panel)'))return {ok:false,code:'busy'};
+    await libraryUI.flush();const result=await window.brinkCore.open(context);coreProject=result;
+    await libraryUI.openScript(result.scriptId);
+    if(result.importJob){busy=true;syncControls();try{for(;;){const job=await api.jobStatus(result.importJob.jobId);if(job.state==='done'){await libraryUI.associate(job.result.id);result.nativeId=job.result.id;break;}if(['error','cancelled'].includes(job.state))throw Error(job.error||'Import abgebrochen.');await new Promise(resolve=>setTimeout(resolve,150));}}finally{busy=false;syncControls();}}
+    const takes=await loadTakes();if(result.nativeId){const take=takes.find(t=>t.id===result.nativeId);if(!take)throw Error('Die verknüpfte Aufnahme ist nicht mehr vorhanden.');await selectTake(take);showView('record');}else showView('script');
+    notice('BRINK-Projekt verbunden. Die Aufnahme startest du selbst.');return {ok:true};
+  }
+  window.BrinkCorePanel?.mount({host:'.navigation',tool:()=> 'voice',accepts:asset=>asset.kind==='audio',open:openCoreProject,
+    publishLabel:'Ausgewählten Take hinzufügen',
+    async publish(id){if(!selectedTake||recording!=='idle'||busy)throw Error('Bitte einen fertigen Take auswählen.');const result=await window.brinkCore.publish('voice',id,{nativeId:selectedTake.id});await window.brinkCore.attach('voice',id,selectedTake.id);return result;},
+    async script(id){if(coreProject?.projectId!==id)throw Error('Öffne zunächst das Script dieses BRINK-Projekts.');await libraryUI.flush();const result=await window.brinkCore.saveScript(id,$('script').value,coreProject.scriptRevision);coreProject.scriptRevision=result.revision;}
+  });
+  window.brinkSuite?.onLaunch(async context => {
+    const {intent}=context;
+    if(context.projectId)return openCoreProject(context);
+    if (intent === 'create') {
+      if (recording !== 'idle' || busy || document.querySelector('dialog[open]')) return { ok: false, code: 'busy' };
+      showView('record');
+      clearPreview();
+      notice('Bereit für eine neue Aufnahme. Mikrofon und Aufnahme startest du selbst.');
+    }
+    return { ok: true };
+  });
+})();

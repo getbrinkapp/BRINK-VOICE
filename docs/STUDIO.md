@@ -1,4 +1,4 @@
-# VOICE 0.6.1 – Aufnahme, Schnitt und Klang
+# VOICE 0.7 – Aufnahme, Schnitt und Klang
 
 ## Aufnahme und Takes
 Record bleibt eine Seite ohne äußeres Scrollen. Mikrofon aktivieren, Pegel prüfen und aufnehmen. Pause stoppt die Wellenform und die gespeicherten Samples sofort. Die linke Bibliothek enthält alle Takes, Suche, Projektfilter, Favoriten und Audioimport. Mit dem Stiftsymbol neben jedem Take lässt sich dessen Name direkt in der Liste ändern. Enter oder „Speichern“ übernimmt ihn; Escape oder „Abbrechen“ verwirft die Eingabe. Über „Take verwalten“ werden außerdem Favorit, Script und Projekt zugeordnet.
@@ -35,3 +35,17 @@ CINE: „Für CINE speichern“ erzeugt ein separates `.brinkvideo`-Projekt und 
 `npm run test:studio`: Scripts, Projekte, Take-Verwaltung, echte Zeigerbedienung freier Schnitte, Verlauf, Zoom, Effektvorschau, A/B, lokale Übergabe und Wiederherstellung nach Neuladen.
 
 Die automatisierten Tests nutzen synthetische Audiodaten. Klangvorlagen sind mit der eigenen Stimme abzuhören; physische Mikrofon- und Bluetooth-Kombinationen werden damit nicht vollständig abgedeckt.
+
+## Audio in Text umwandeln
+
+Take in der linken Liste auswählen und **Transkribieren** anklicken. Das funktioniert mit eigenen Aufnahmen und importierten Audiodateien. Sprache auswählen (Deutsch ist voreingestellt, automatische Erkennung ist verfügbar) und starten. Whisper Base läuft mit whisper.cpp vollständig lokal. Modell und Engine liegen der macOS-App für Apple Silicon bei; kein API-Schlüssel, kein Audio-Upload und kein zusätzlicher Download beim Start. Unterstützte Take-Länge: 0,2 Sekunden bis 2 Stunden.
+
+Ein Fortschritt zeigt den laufenden Auftrag. **Abbrechen** beendet ihn; ein früheres Transkript bleibt erhalten. Eine erneute Transkription fragt vor dem Ersetzen nach. Nach erfolgreicher Erkennung lässt sich der Text direkt korrigieren; Änderungen werden automatisch gespeichert und auch als ausstehender Entwurf gesichert. **Text kopieren**, **TXT exportieren** und **Als neues Script öffnen** verwenden den korrigierten Text. Ein neues Script ersetzt keine vorhandenen Scripts. Im Anschluss kann der Text über **In Record ablesen** im Teleprompter verwendet werden.
+
+Transkripte liegen lokal in `VOICE/Transcripts`. Sie werden zusammen mit dem zugehörigen Take gelöscht. Bearbeitete Audio-Ergebnisse sind eigene Takes und erhalten bei Bedarf ihre eigene Transkription.
+
+Whisper kann sich bei Namen, leiser Sprache, Akzenten oder Nebengeräuschen irren. Das Base-Modell priorisiert kurze Wartezeiten; den Text vor Veröffentlichung gegenhören. Die Transkription übersetzt nicht und unterscheidet keine Sprecher.
+
+Entwicklungssetup: `npm run setup:whisper` lädt die gepinnte Engine-Quelle und das per Prüfsumme verifizierte Base-Modell und baut die native CLI. Benötigt macOS Apple Silicon, Xcode Command Line Tools, CMake, Git, curl und Node. Die Runtime unter `runtime/whisper` wird nicht in Git abgelegt; `npm run build` prüft sie und nimmt sie als App-Ressource auf. Andere Plattformpakete benötigen eine eigene passende Whisper-Runtime und werden aktuell vom Build-Check abgelehnt.
+
+`npm run test:transcription` prüft echte lokale Spracherkennung, Korrekturen, Zwischenablage, TXT-Export, Script/Teleprompter, Abbruch, Ersatzbestätigung und Neustart-Persistenz. Die englische Testaufnahme stammt aus den whisper.cpp-Beispielen (JFK-Rede). Zusätzlich wurde eine lokal synthetisierte deutsche Sprachprobe geprüft; Eigennamen und einzelne Wörter benötigen gegebenenfalls Korrektur.

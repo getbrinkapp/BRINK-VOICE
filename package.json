@@ -1,7 +1,7 @@
 {
   "name": "brink-voice",
   "productName": "VOICE",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Voice-over-Studio mit Teleprompter im BRINK-Design",
   "private": true,
   "license": "UNLICENSED",
@@ -16,7 +16,9 @@
     "test": "node --test tests/*.test.cjs",
     "test:smoke": "electron tests/smoke.cjs",
     "build": "electron-builder --mac dir",
-    "test:studio": "electron tests/studio-smoke.cjs"
+    "test:studio": "electron tests/studio-smoke.cjs",
+    "setup:whisper": "bash scripts/setup-whisper.sh",
+    "test:transcription": "electron tests/transcription-smoke.cjs"
   },
   "devDependencies": {
     "electron": "44.3.0",
@@ -33,11 +35,11 @@
       "app/**/*",
       "electron/**/*",
       "package.json",
-      "build/brink.png",
+      "build/voice.png",
       "docs/licenses/**/*"
     ],
     "mac": {
-      "icon": "build/brink.icns",
+      "icon": "build/voice.icns",
       "category": "public.app-category.music",
       "identity": null,
       "extendInfo": {
@@ -45,11 +47,11 @@
       }
     },
     "win": {
-      "icon": "build/brink.png",
+      "icon": "build/voice.png",
       "target": "nsis"
     },
     "linux": {
-      "icon": "build/brink.png",
+      "icon": "build/voice.png",
       "target": "AppImage"
     },
     "npmRebuild": false,
@@ -57,10 +59,28 @@
     "afterPack": "scripts/after-pack.cjs",
     "asarUnpack": [
       "node_modules/ffmpeg-static/**"
+    ],
+    "beforePack": "scripts/check-whisper.cjs",
+    "extraResources": [
+      {
+        "from": "runtime/whisper",
+        "to": "whisper",
+        "filter": [
+          "bin/whisper-cli",
+          "models/ggml-base.bin",
+          "manifest.json"
+        ]
+      }
     ]
   },
   "dependencies": {
     "@jitsi/rnnoise-wasm": "0.2.1",
     "ffmpeg-static": "5.3.0"
+  },
+  "brinkSuite": {
+    "protocol": 1,
+    "tools": [
+      "voice"
+    ]
   }
 }

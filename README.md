@@ -1,15 +1,23 @@
-# BRINK VOICE 0.6.3
+# BRINK VOICE 0.7.0
 
 Lokales Voice-over-Studio mit **Record**, **Script** und einem Editor für freie Schnitte, Pausen und Klangeffekte.
+
+Seit 27.09.2026 über BRINK CORE angebunden: BRINK Studio und die eigenständige BRINK CONSOLE können VOICE starten. „BRINK Projekte“ übernimmt Script/Audio; Takes und geprüfte Scriptänderungen können direkt zurückgegeben werden. Auch direkte Starts benötigen vor dem Öffnen eine aktive Admin-, Alpha-, Studio- oder Studio+-Freigabe, aber kein geöffnetes BRINK-Fenster. Lokale Takes bleiben erhalten. Gemeinsame Bridge im Hauptrepository pflegen (`npm run suite:sync`). Grenzen und Release-Checkliste: [BRINK CORE](../../docs/BRINK_CORE.md).
 
 Die aktuelle Bedienung, Effektreihenfolge und Übergabe an BRINK/CINE stehen in [docs/STUDIO.md](docs/STUDIO.md).
 
 ```sh
-cd /Users/tom/Developer/VOICE
+cd /Users/tom/Developer/brink/apps/VOICE
 npm start
 ```
 
 Node.js ab 22.12.0. Installation bei Bedarf: `npm install`. Lokale macOS-App: `npm run build`, danach `release/mac-arm64/VOICE.app` auf Apple Silicon. Das lokale Paket ist nicht mit einem Apple-Developer-Zertifikat signiert/notarisiert.
+
+## Transkription
+
+Take auswählen → **Transkribieren** → Sprache wählen → starten. Whisper läuft lokal; Texte sind editierbar, kopierbar, als TXT exportierbar und als neues Script nutzbar. Die macOS-App für Apple Silicon enthält Modell und Engine. Details unter [docs/STUDIO.md](docs/STUDIO.md).
+
+Für einen frischen Entwicklungscheckout vor dem Paketieren `npm run setup:whisper` ausführen (CMake und Xcode Command Line Tools erforderlich).
 
 ## Record
 
@@ -54,7 +62,7 @@ Takes werden blockweise im Benutzerverzeichnis `VOICE/Recordings` geschrieben (m
 
 ## Tests
 
-- `npm test`: 27 Prüfungen inklusive Lückenanalyse, Originalerhalt, Schnittlängen, leiser Sprache, reiner Stille, Einstellungen und Dateiformat, Wiederherstellung, PCM/Pause, Pegelmessung, Textimport, Geräteauswahl, Deckelerkennung und Byte-Range-Wiedergabe.
+- `npm test`: 30 Prüfungen inklusive Lückenanalyse, Originalerhalt, Schnittlängen, leiser Sprache, reiner Stille, Einstellungen und Dateiformat, Wiederherstellung, PCM/Pause, Pegelmessung, Textimport, Geräteauswahl, Deckelerkennung und Byte-Range-Wiedergabe.
 - `npm run test:studio`: freie Schnitte, Zoom, Verlauf, Effektvorlagen, RNNoise-Vorschau, Originalvergleich, Import, Script-/Projektverwaltung und BRINK/CINE-Übergabe.
 - `npm run test:smoke`: vollständiger Ablauf mit bekanntem moduliertem 440-Hz-Signal. Prüft Frequenz/Signalenergie der tatsächlichen WAV-Datei, gemalte Wellenformpixel, Live-Pegel, sofortigen Pausenstatus, pixelgleich eingefrorene große/kleine Wellenform trotz laufender Mikrofonquelle, Fortsetzen, Textkopplung, Wiedergabe/Seek/Export, Lückenanalyse, bereinigten Take samt Vergleich und WAV-Export, getrennte Seiten, scrollfreies Layout und Entwurf-/Take-Persistenz.
 - `electron tests/hardware-input.cjs`: prüft den konkreten geschlossenen-Deckel-Fall mit echter Geräteauflistung, ohne eine stumme Aufnahme zu speichern.
