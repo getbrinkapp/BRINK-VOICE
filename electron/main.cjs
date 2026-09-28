@@ -11,7 +11,7 @@ const silence = require('./silence.cjs');
 const {inputStatus} = require('./input-status.cjs');
 const {audioResponse} = require('./audio-response.cjs');
 app.setName('VOICE');
-if (process.env.BRINK_SUITE_PROFILE) app.setPath('userData', process.env.BRINK_SUITE_PROFILE);
+require('./suite/profiles.cjs').configureApplication(app, 'VOICE', app.getPath('userData'));
 if (!app.requestSingleInstanceLock()) app.exit(0);
 
 protocol.registerSchemesAsPrivileged([{scheme: 'voice', privileges: {standard: true, secure: true, supportFetchAPI: true, stream: true}}]);
