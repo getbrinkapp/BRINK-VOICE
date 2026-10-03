@@ -4,10 +4,11 @@ const path=require('node:path');
 const fs=require('node:fs');
 const {app,ipcMain,dialog}=require('electron');
 function createCoreBridge({tools,trusted,getWindow}) {
-    const developmentRoot=path.resolve(__dirname,'../../../..');
+    const installationRoot=app.getAppPath().endsWith('app.asar')
+        ? app.getAppPath() : path.resolve(__dirname,'../../../..');
     const profile=process.env.BRINK_CORE_PROFILE || path.join(app.getPath('appData'),'brink');
     const call=(method,args=[])=>{
-        const root=require('./installation.cjs').resolveRoot(developmentRoot,app.getPath('appData'));
+        const root=require('./installation.cjs').resolveRoot(installationRoot,app.getPath('appData'));
         return require(path.join(root,'electron/core/client.cjs')).callAt(root,profile,method,args);
     };
     let checkedAt=0,allowed=false,adapter={},checking;

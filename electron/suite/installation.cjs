@@ -6,6 +6,17 @@ function isCoreRoot(root) {
 }
 function resolveRoot(developmentRoot,appData) {
     if(isCoreRoot(developmentRoot))return developmentRoot;
+    // A shared installer can start CONSOLE/editors before BRINK has ever run.
+    // This location comes from the signed application's own manifest, not UI input.
+    if (developmentRoot.endsWith('app.asar')) {
+        try {
+            const relative=JSON.parse(fs.readFileSync(path.join(developmentRoot,'package.json'),'utf8')).brinkSuiteCoreRelative;
+            if (['../../../../../app.asar','../../../BRINK.app/Contents/Resources/app.asar'].includes(relative)) {
+                const adjacent=path.resolve(path.dirname(developmentRoot),relative);
+                if(isCoreRoot(adjacent))return adjacent;
+            }
+        } catch {}
+    }
     const file=path.join(appData,'brink','suite-installation.json');
     try {
         const stat=fs.lstatSync(file);
